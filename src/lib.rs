@@ -7,7 +7,6 @@ use futures::Async;
 
 use std::cell::{RefCell, UnsafeCell};
 
-
 /// Convenient macro to suspend and retry async operation
 /// just as it was blocking operation
 #[macro_export]
@@ -87,13 +86,6 @@ unsafe fn yielder_tl_pop() -> &'static Yield {
     yielder.0.into_inner()
 }
 
-pub fn yield_now() {
-    let y = unsafe { yielder_tl_pop() };
-
-    y.suspend();
-
-    unsafe { yielder_tl_push(y) }
-}
 
 pub struct Fiber<'a, O : Send+'a, E : Send+'a> {
     co : fringe::Generator<'a, ResumeCommand, SuspendCommand<O, E>, fringe::OsStack>,
@@ -131,5 +123,29 @@ impl<'a, O : Send, E : Send> futures::Future for Fiber<'a, O, E> {
     type Error = E;
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
         self.co.resume(ResumeCommand::Unblock).expect("poll on finished Fiber is illegal")
+    }
+}
+
+/// Yield the current fiber
+///
+/// Block current fiber. It will be resumed and thus this function will return,
+/// when the event loop decides it might be ready. This includes: previously
+/// blocked IO becoming unblocked etc.
+pub fn yield_now() {
+    let y = unsafe { yielder_tl_pop() };
+
+    y.suspend();
+
+    unsafe { yielder_tl_push(y) }
+}
+
+/// Block current fiber to wait for result of another future
+pub fn await<F: futures::Future>(mut f: F) -> Result<F::Item, F::Error> {
+    loop {
+        match f.poll() {
+            Ok(Async::NotReady) => yield_now(),
+            Ok(Async::Ready(val)) => return Ok(val),
+            Err(e) => return Err(e),
+        };
     }
 }
