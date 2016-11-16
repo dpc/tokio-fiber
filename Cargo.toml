@@ -6,7 +6,8 @@ authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
 [dependencies]
 fringe = { git = "https://github.com/nathan7/libfringe.git" }
 tokio-core = "*"
-futures = "*"
+#futures = "*"
+futures = { git = "https://github.com/alexcrichton/futures-rs" }
 
 [dev-dependencies]
 env_logger = "*"

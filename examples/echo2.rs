@@ -38,6 +38,7 @@ fn main() {
     // Create the event loop that will drive this server
     let mut l = Core::new().unwrap();
     let handle = l.handle();
+    let remote = handle.remote().clone();
 
     // Create a TCP listener which will listen for incoming connections
     let socket = TcpListener::bind(&addr, &handle).unwrap();
@@ -45,30 +46,31 @@ fn main() {
     // Once we've got the TCP listener, inform that we have it
     println!("Listening on: {}", addr);
 
-    // Pull out the stream of incoming connections and then for each new
-    // one spin up a new task copying data.
-    //
-    // We use the `io::copy` future to copy all data from the
-    // reading half onto the writing half.
-    let done = socket.incoming().for_each(move |(mut conn, _addr)| {
-        let fib = tokio_fiber::Fiber::new(move || -> io::Result<()> {
-            let mut buf = [0u8; 1024 * 64];
-            loop {
-                let size = poll!(conn.read(&mut buf))?;
-                if size == 0 {/* eof */ break; }
-                let _ = poll!(conn.write_all(&mut buf[0..size]))?;
-            }
+    let fiber = tokio_fiber::Fiber::new(move || -> io::Result<()> {
+        loop {
+            let (mut conn, _addr) = poll!(socket.accept())?;
 
-            Ok(())
-        });
+            let conn_fib = tokio_fiber::Fiber::new(move || -> io::Result<()> {
+                let mut buf = [0u8; 1024 * 64];
+                loop {
+                    let size = poll!(conn.read(&mut buf))?;
+                    if size == 0 {/* eof */ break; }
+                    let _ = poll!(conn.write_all(&mut buf[0..size]))?;
+                }
 
-        let fib = fib.map_err(|e| {
-            println!("error: {}", e);
-        });
+                Ok(())
+            });
 
-        handle.spawn(fib);
+            remote.spawn(|_handle| {
+                conn_fib.map_err(|e| {
+                    println!("error: {}", e);
+                })
+            });
 
-        Ok(())
+        }
     });
-    l.run(done).unwrap();
+
+    l.run(fiber.map_err(|e| {
+        println!("error: {}", e);
+    })).unwrap();
 }
