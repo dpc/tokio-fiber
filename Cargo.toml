@@ -1,0 +1,12 @@
+[package]
+name = "tokio-fiber"
+version = "0.1.0"
+authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
+
+[dependencies]
+fringe = { git = "https://github.com/nathan7/libfringe.git" }
+tokio-core = "*"
+futures = "*"
+
+[dev-dependencies]
+env_logger = "*"
