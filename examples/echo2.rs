@@ -24,7 +24,6 @@ use std::env;
 use std::net::SocketAddr;
 
 use futures::Future;
-use futures::stream::Stream;
 use tokio_core::net::TcpListener;
 use tokio_core::reactor::Core;
 
@@ -41,7 +40,7 @@ fn main() {
     let remote = handle.remote().clone();
 
     // Create a TCP listener which will listen for incoming connections
-    let socket = TcpListener::bind(&addr, &handle).unwrap();
+    let mut socket = TcpListener::bind(&addr, &handle).unwrap();
 
     // Once we've got the TCP listener, inform that we have it
     println!("Listening on: {}", addr);
